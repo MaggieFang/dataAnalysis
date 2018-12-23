@@ -6,27 +6,25 @@ library(rgl)
 
 range01 <- function(x){(x-min(x))/(max(x)-min(x))}
 
-folder = "/Users/xfang7/Documents/RCode/RAnalysis/"
+folder = "/Users/xfang7/Documents/RCode/dataAnalysis/"
 user =  read.csv(paste(folder,"sessions.csv", sep=''))
 df =  read.csv(paste(folder,"transactions.csv", sep=''))
 df = merge(df,user,by.x="session_id",by.y="session_id")
-df = df[!(df$test == TRUE & df$score == FALSE),]
 rank = order(df$user_id)
 df = df[rank,]
-df$conversion = as.numeric(df$conversion)
 table(df$conversion)
 summary(df)
+
 hist(df$num_impressions)
 hist(df$num_search)
 hist(df$avg_relevance)
 
-
 sapply(subset(df,select = c("conversion","num_impressions","avg_relevance","num_search")), sd)
 xtabs(~conversion + num_impressions, data = df)
 xtabs(~conversion + num_search, data = df)
-
 buy = df[df$conversion == TRUE,]
 notBuy = df[df$conversion == FALSE,]
+
 lu=length(unique(buy$user_id))
 print(lu==nrow(buy))
 
@@ -39,17 +37,21 @@ summary(notBuy$num_impressions)
 summary(buy$num_search)
 summary(notBuy$num_search)
 
+df$conversion = as.numeric(df$conversion)
+
 df.train = df[df$train == TRUE,]
-df.test = df[df$train == FALSE & df$score==TRUE,]
+df.test = df[df$train == FALSE,]
+df.fit = df[df$score == TRUE,]
+
 trainTrue = df.train[df.train$conversion == TRUE,]
 for(i in nrow(df.test)){
   df.test[i,]$user_id %in% trainTrue$user_id
   print(paste(i,",traintrue,",df.test[i,]$conversion, df.test[i,]$user_id,sep=''))
-  
 }
 
 correlationMatrix <- cor(df[,4:6])
 print(correlationMatrix)
+
 
 
 df.train$num_impressions = factor(df.train$num_impressions)
