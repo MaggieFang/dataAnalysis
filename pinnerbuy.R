@@ -45,6 +45,30 @@ df.train = df[df$train == TRUE,]
 df.test = df[df$train == FALSE,]
 df.fit = df[df$score == TRUE,]
 
+mylogit <- glm(conversion ~  avg_relevance + num_search, data = df.train, family = "binomial")
+summary(mylogit)
+confint(mylogit)
+fit_row = nrow(df.fit)
+for(i in 1:fit_row){
+  data = df.fit[i,]
+  idx = which(df$user_id == data$user_id)
+  rows = df[idx,]
+  df.fit[i,]$num_search =sum(rows$num_search)
+}
+df.fit$pred  = predict(mylogit, newdata = df.fit, type = "response")
+library(InformationValue)
+optCutOff <- optimalCutoff(df.fit$conversion, df.fit$pred )[1] 
+df.fit$pred = as.numeric(df.fit$pred>= optCutOff)
+mean(df.fit$conversion == df.fit$pred)
+
+df$pred  = predict(mylogit, newdata = df, type = "response")
+library(InformationValue)
+optCutOff <- optimalCutoff(df$conversion, df$pred )[1] 
+df$pred = as.numeric(df$pred>= optCutOff)
+mean(df$conversion == df$pred)
+
+
+
 #删除purchase后还推的数据
 factor_train = factor(df.train$user_id)
 level = levels(factor_train)
