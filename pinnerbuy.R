@@ -14,12 +14,10 @@ df = merge(df,user,by.x="session_id",by.y="session_id")
 rank = order(df$user_id)
 df = df[rank,]
 df$conversion = as.numeric(df$conversion)
-tm= df
+
 # get some information of data
 table(df$conversion)
 summary(df)
-
-colSums(is.na(df))
 
 hist(df$num_impressions)
 hist(df$num_search)
@@ -66,31 +64,6 @@ df.train = df[df$train == TRUE,]
 df.test = df[df$train == FALSE,]
 df.fit = df[df$score == TRUE,]
 
-# count =0
-# factor_train = factor(df.train$user_id)
-# level = levels(factor_train)
-# for(i in 1:length(level)){
-#   user_id = level[i]
-#   idx = which(df.train$user_id == user_id)
-#   data = df.train[idx,]
-#   data = data[order(data$session_dt),]
-#   for(j in 1:nrow(data)){
-#     if(data[j,]$conversion == 1 && j != nrow(data)){
-#       k = nrow(data)
-#       while( k >= j+1){
-#         print(paste("delete,",k,data[k,]$user_id,data[k,]$session_dt, sep=' '))
-#         df.train = subset(df.train,df.train$session_id != data[k,]$session_id)
-#         df = subset(df,df$session_id != data[k,]$session_id)
-#         count = count+1
-#         k= k-1
-#       }
-#       break
-#     }
-#   }
-# }
-# 
-
-
 # 观察train中true的user是否出现在test，结果只有一个
 trainTrue = df.train[df.train$conversion == 1,]
 for(i in nrow(df.test)){
@@ -102,51 +75,28 @@ for(i in nrow(df.test)){
 correlationMatrix = cor(df[,4:6])
 print(correlationMatrix)
 
-mylogit <- glm(conversion ~ avg_relevance + num_search, family = "binomial",data = df.train)
+mylogit <- glm(conversion ~  avg_relevance + num_search , data = df.train, family = "binomial")
 summary(mylogit)
-anova(mylogit,test="Chisq")
-# 
-# confint(mylogit)
-# 
-# ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
-# mod_fit <- train(conversion ~  avg_relevance + num_search,  data=df.train, method="glm", family="binomial",
-#                  trControl = ctrl, tuneLength = 5)
-
+confint(mylogit)
 fit_row = nrow(df.fit)
 for(i in 1:fit_row){
   data = df.fit[i,]
   idx = which(df$user_id == data$user_id)
   rows = df[idx,]
-  df.fit[i,]$num_search =sum(rows$num_search)
+  rows = rows[order(rows$session_dt),]
+  testIdx = which(data$session_id == rows$session_id)
+  rows = rows[1:testIdx,]
+  df.fit[i,]$num_search = sum(rows$num_search)
 }
-
-
-#df.fit$pred  = predict(mylogit, newdata = df.fit, type = "response")
-df.fit$pred = predict(mylogit, newdata=df.fit)
-optCutOff <- optimalCutoff(df.fit$conversion, df.fit$pred)[1] 
-df.fit$pred = as.numeric(df.fit$pred>= optCutOff)
-df.fit$acc = (df.fit$pred == df.fit$conversion)
-mean(df.fit$acc)
-table(df.fit$conversion,df.fit$pred)
-
-library(ROCR)
-pr <- prediction(df.fit$pred, df.fit$conversion)
-prf <- performance(pr, measure = "tpr", x.measure = "fpr")
-plot(prf)
-auc <- performance(pr, measure = "auc")
-auc <- auc@y.values[[1]]
-auc
-
-
-df.train$pred  = predict(mylogit, newdata = df.train, type = "response")
+df.fit$pred  = predict(mylogit, newdata = df.fit, type = "response")
 library(InformationValue)
-optCutOff <- optimalCutoff(df.train$conversion, df.train$pred )[1] 
-df.train$pred = as.numeric(df.train$pred>= optCutOff)
-mean(df.train$conversion == df.train$pred)
-table(df.train$conversion,df.train$pred)
+optCutOff <- optimalCutoff(df.fit$conversion, df.fit$pred )[1] 
+df.fit$pred = as.numeric(df.fit$pred>= optCutOff)
+mean(df.fit$conversion == df.fit$pred)
+table(df.fit$conversion,df.fit$pred)
+df.fit$acc = (df.fit$conversion == df.fit$pred)
 
-
-df$pred  = predict(mod_fit, newdata = df, type = "response")
+df$pred  = predict(mylogit, newdata = df, type = "response")
 library(InformationValue)
 optCutOff <- optimalCutoff(df$conversion, df$pred )[1] 
 df$pred = as.numeric(df$pred>= optCutOff)
@@ -160,21 +110,21 @@ table(df$conversion,df$pred)
 factor_train = factor(df.train$user_id)
 level = levels(factor_train)
 for(i in 1:length(level)){
-   user_id = level[i]
-   idx = which(df.train$user_id == user_id)
-   data = df.train[idx,]
-   data = data[order(data$session_dt),]
-   for(j in 1:nrow(data)){
-     if(data[j,]$conversion == 1 && j != nrow(data)){
-       k = nrow(data)
-       while( k >= j+1){
-         print(paste("delete,",k,data[k,]$user_id,data[k,]$session_dt, sep=' '))
-         df.train=df.train[-c(idx[k]),]  
-         k= k-1
-       }
-       break
-     }
-   }
+  user_id = level[i]
+  idx = which(df.train$user_id == user_id)
+  data = df.train[idx,]
+  data = data[order(data$session_dt),]
+  for(j in 1:nrow(data)){
+    if(data[j,]$conversion == 1 && j != nrow(data)){
+      k = nrow(data)
+      while( k >= j+1){
+        print(paste("delete,",k,data[k,]$user_id,data[k,]$session_dt, sep=' '))
+        df.train=df.train[-c(idx[k]),]  
+        k= k-1
+      }
+      break
+    }
+  }
 }
 
 
