@@ -14,10 +14,12 @@ df = merge(df,user,by.x="session_id",by.y="session_id")
 rank = order(df$user_id)
 df = df[rank,]
 df$conversion = as.numeric(df$conversion)
-
+tm= df
 # get some information of data
 table(df$conversion)
 summary(df)
+
+colSums(is.na(df))
 
 hist(df$num_impressions)
 hist(df$num_search)
@@ -31,7 +33,63 @@ xtabs(~conversion + num_search, data = df)
 buy = df[df$conversion == 1,]
 notBuy = df[df$conversion == 0,]
 lu=length(unique(buy$user_id))
-print(lu==nrow(buy)) # buy的数量跟userId都是一样的7500，说明买的用户有买就是1次
+print(lu==nrow(buy)) # buy的数量跟userId都是一样的7500，说明买的用户有买就是1次，ps，总的user有15000
+
+# count = 0
+# factor_train = factor(df$user_id)
+# level = levels(factor_train)
+# for(i in 1:length(level)){
+#   user_id = level[i]
+#   idx = which(df$user_id == user_id)
+#   data = df[idx,]
+#   data = data[order(data$session_dt),]
+#   for(j in 1:nrow(data)){
+#    # print(paste("here,,",j,data[j,]$user_id,data[j,]$session_dt, sep=' '))
+#     if(data[j,]$conversion == 1 && j != nrow(data)){
+#       k = nrow(data)
+#       while(k >= j+1){
+#         if(data[k,]$score == FALSE){
+#           print(paste("delete,",k,data[k,]$user_id,data[k,]$session_dt, sep=' '))
+#           count = count+1
+#           df = subset(df,df$session_id != data[k,]$session_id)
+#         }
+#         k= k-1
+#       }
+#       break
+#     }
+#   }
+# }
+
+
+# train data,test data,
+df.train = df[df$train == TRUE,]
+df.test = df[df$train == FALSE,]
+df.fit = df[df$score == TRUE,]
+
+# count =0
+# factor_train = factor(df.train$user_id)
+# level = levels(factor_train)
+# for(i in 1:length(level)){
+#   user_id = level[i]
+#   idx = which(df.train$user_id == user_id)
+#   data = df.train[idx,]
+#   data = data[order(data$session_dt),]
+#   for(j in 1:nrow(data)){
+#     if(data[j,]$conversion == 1 && j != nrow(data)){
+#       k = nrow(data)
+#       while( k >= j+1){
+#         print(paste("delete,",k,data[k,]$user_id,data[k,]$session_dt, sep=' '))
+#         df.train = subset(df.train,df.train$session_id != data[k,]$session_id)
+#         df = subset(df,df$session_id != data[k,]$session_id)
+#         count = count+1
+#         k= k-1
+#       }
+#       break
+#     }
+#   }
+# }
+# 
+
 
 # 观察train中true的user是否出现在test，结果只有一个
 trainTrue = df.train[df.train$conversion == 1,]
@@ -40,14 +98,20 @@ for(i in nrow(df.test)){
   print(paste(i,",traintrue,",df.test[i,]$conversion, df.test[i,]$user_id,sep=''))
 }
 
-# train data,test data,
-df.train = df[df$train == TRUE,]
-df.test = df[df$train == FALSE,]
-df.fit = df[df$score == TRUE,]
+#相关性
+correlationMatrix = cor(df[,4:6])
+print(correlationMatrix)
 
-mylogit <- glm(conversion ~  avg_relevance + num_search, data = df.train, family = "binomial")
+mylogit <- glm(conversion ~ avg_relevance + num_search, family = "binomial",data = df.train)
 summary(mylogit)
-confint(mylogit)
+anova(mylogit,test="Chisq")
+# 
+# confint(mylogit)
+# 
+# ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
+# mod_fit <- train(conversion ~  avg_relevance + num_search,  data=df.train, method="glm", family="binomial",
+#                  trControl = ctrl, tuneLength = 5)
+
 fit_row = nrow(df.fit)
 for(i in 1:fit_row){
   data = df.fit[i,]
@@ -55,19 +119,42 @@ for(i in 1:fit_row){
   rows = df[idx,]
   df.fit[i,]$num_search =sum(rows$num_search)
 }
-df.fit$pred  = predict(mylogit, newdata = df.fit, type = "response")
-library(InformationValue)
-optCutOff <- optimalCutoff(df.fit$conversion, df.fit$pred )[1] 
-df.fit$pred = as.numeric(df.fit$pred>= optCutOff)
-mean(df.fit$conversion == df.fit$pred)
 
-df$pred  = predict(mylogit, newdata = df, type = "response")
+
+#df.fit$pred  = predict(mylogit, newdata = df.fit, type = "response")
+df.fit$pred = predict(mylogit, newdata=df.fit)
+optCutOff <- optimalCutoff(df.fit$conversion, df.fit$pred)[1] 
+df.fit$pred = as.numeric(df.fit$pred>= optCutOff)
+df.fit$acc = (df.fit$pred == df.fit$conversion)
+mean(df.fit$acc)
+table(df.fit$conversion,df.fit$pred)
+
+library(ROCR)
+pr <- prediction(df.fit$pred, df.fit$conversion)
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+auc <- performance(pr, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+
+
+df.train$pred  = predict(mylogit, newdata = df.train, type = "response")
+library(InformationValue)
+optCutOff <- optimalCutoff(df.train$conversion, df.train$pred )[1] 
+df.train$pred = as.numeric(df.train$pred>= optCutOff)
+mean(df.train$conversion == df.train$pred)
+table(df.train$conversion,df.train$pred)
+
+
+df$pred  = predict(mod_fit, newdata = df, type = "response")
 library(InformationValue)
 optCutOff <- optimalCutoff(df$conversion, df$pred )[1] 
 df$pred = as.numeric(df$pred>= optCutOff)
 mean(df$conversion == df$pred)
+table(df$conversion,df$pred)
 
 
+#######################以下是之前尝试#######################
 
 #删除purchase后还推的数据
 factor_train = factor(df.train$user_id)
@@ -90,9 +177,7 @@ for(i in 1:length(level)){
    }
 }
 
-#相关性
-correlationMatrix = cor(df[,4:6])
-print(correlationMatrix)
+
 
 
 # 把search认为是1-7的7个单独变量
