@@ -18,6 +18,7 @@ df$conversion = as.numeric(df$conversion)
 # get some information of data
 table(df$conversion)
 summary(df)
+plot(df$conversion~df$num_search)
 
 hist(df$num_impressions)
 hist(df$num_search)
@@ -25,7 +26,16 @@ hist(df$avg_relevance)
 
 sapply(subset(df,select = c("conversion","num_impressions","avg_relevance","num_search")), sd)
 xtabs(~conversion + num_impressions, data = df)
-xtabs(~conversion + num_search, data = df)
+x = xtabs(~conversion + num_search, data = df)
+plot(x[1,], type="o", col="blue",axes=FALSE, ann=FALSE)
+axis(1, at=1:8, lab=c("0", "1", "2", "3","4", "5","6","7"))
+axis(2, las=1, at=1000*0:range(x)[2])
+lines(x[2,], type="o", pch=22, lty=2, col="red")
+title(main="conversion vs num_search", col.main="red", font.main=4)
+title(xlab="num_search", col.lab=rgb(0,0.5,0))
+title(ylab="total", col.lab=rgb(0,0.5,0))
+legend("topright",c("conversion=0","conversion=1"), cex=0.8, col=c("blue","red"), pch=21:22, lty=1:2)
+
 
 # divide into two file buy/not buy
 buy = df[df$conversion == 1,]
