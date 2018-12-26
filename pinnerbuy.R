@@ -59,6 +59,8 @@ df.train = df[df$train == TRUE,]
 df.test = df[df$train == FALSE,]
 df.fit = df[df$score == TRUE,]
 
+mylogit = multinom(conversion~avg_relevance + num_search, data = df.train)
+
 mylogit <- glm(conversion ~  avg_relevance + num_search , data = df.train, family = "binomial")
 summary(mylogit)
 confint(mylogit)
@@ -67,7 +69,6 @@ for(i in 1:fit_row){
   data = df.fit[i,]
   idx = which(df$user_id == data$user_id)
   rows = df[idx,]
-  rows = rows[order(rows$session_dt),]
   testIdx = which(data$session_id == rows$session_id)
   rows = rows[1:testIdx,]
   df.fit[i,]$num_search = sum(rows$num_search)
