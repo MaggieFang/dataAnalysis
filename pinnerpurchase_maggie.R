@@ -61,13 +61,12 @@ hist(not_buy_detail$avg_relevance,main = "Histogram of avg_relevance for not-buy
 
 # train data,test data,
 df.train = df[df$train == TRUE,]
-df.test = df[df$train == FALSE,]
 df.fit = df[df$score == TRUE,]
 
 # define training control
 train_control = trainControl(method = "cv", number = 10)
 mylogit = train(conversion~avg_relevance + num_search , data = df.train,trControl = train_control,method = "glm",family=binomial())
-# mylogit <- glm(conversion~avg_relevance + num_search , data = df, family = "binomial",subset = df.train)
+# mylogit = glm(conversion~avg_relevance + num_search , data = df, family = "binomial",subset = df.train)
 summary(mylogit)
 
 confint(mylogit)
@@ -97,8 +96,8 @@ mean(df.fit$pred == df.fit$conversion)
 caret::confusionMatrix(factor(df.fit$conversion),factor(df.fit$pre),positive = "1")
 table(df.fit$conversion,df.fit$pred)
 
-p <- predict(mylogit, newdata=df.fit, type = "response")
-pr <- prediction(p, df.fit$conversion)
+p = predict(mylogit, newdata=df.fit, type = "response")
+pr = prediction(p, df.fit$conversion)
 roc = performance(pr,"tpr","fpr")
 plot(roc,colorize = T,main= "ROC Curve")
 abline(a=0,b=1)
